@@ -1,0 +1,800 @@
+<!doctype html>
+<html lang="hy">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Հավաքիր մարդուն</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik:wght@500;700;800&family=Nunito:wght@400;600;700;800&family=Noto+Sans+Armenian:wght@400;600;700;800&display=swap">
+<style>
+  /* Макет: лоток органов слева · туловище в центре · карточка-факт справа; на телефоне всё в столбик */
+  :root {
+    --bg: #ffffff;
+    --ink: #1f2a44;
+    --muted: #6b7591;
+    --line: #e6ebf5;
+    --skin: #dcefff;
+    --skin-edge: #7fb3e6;
+    --accent: #2f7cf6;
+    --good: #22b07d;
+    --bad: #ef4b5c;
+    --sun: #ffc93c;
+    --display: "Rubik", "Noto Sans Armenian", "Segoe UI", system-ui, sans-serif;
+    --body: "Nunito", "Noto Sans Armenian", "Segoe UI", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.5 var(--body);
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 20px 32px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; display: grid; gap: 20px; }
+
+  header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 20px; }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .logo {
+    width: 48px; height: 48px; border-radius: 14px; background: var(--bad);
+    display: grid; place-items: center; flex: none;
+  }
+  h1 { font: 800 clamp(22px, 3.2vw, 32px)/1.1 var(--display); margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+  .sub { margin: 2px 0 0; color: var(--muted); font-size: 14px; }
+
+  .stats { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    display: flex; align-items: baseline; gap: 6px; padding: 8px 14px; border-radius: 999px;
+    background: #f3f7fd; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap;
+  }
+  .chip small { font-weight: 600; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
+  .chip.found b { color: var(--good); }
+  .chip.err b { color: var(--bad); }
+
+  .game { display: grid; grid-template-columns: 220px minmax(0, 1fr) 280px; gap: 20px; align-items: start; }
+
+  /* Лоток органов */
+  .tray h2, .facts h2 {
+    font: 700 13px/1 var(--display); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 12px;
+  }
+  .tray-list { display: grid; gap: 8px; }
+  .organ {
+    display: flex; align-items: center; gap: 10px; width: 100%;
+    padding: 6px 10px; border: 2px solid var(--line); border-radius: 16px; background: #fff;
+    font: 700 15px/1.2 var(--body); color: var(--ink); text-align: left;
+    cursor: grab; touch-action: none; user-select: none;
+    transition: transform .15s, border-color .15s, box-shadow .15s, opacity .2s;
+  }
+  .organ:hover { border-color: var(--c); transform: translateY(-2px); box-shadow: 0 6px 16px -8px var(--c); }
+  .organ:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .organ.selected { border-color: var(--c); background: color-mix(in srgb, var(--c) 10%, #fff); box-shadow: 0 0 0 4px color-mix(in srgb, var(--c) 25%, transparent); }
+  .organ.dragging { opacity: .35; }
+  .organ.done { opacity: .45; cursor: default; border-style: dashed; transform: none; box-shadow: none; }
+  .organ.done .tick { display: grid; }
+  .organ .ico { width: 44px; height: 44px; flex: none; display: grid; place-items: center; border-radius: 12px; background: color-mix(in srgb, var(--c) 12%, #fff); }
+  .organ .ico svg { width: 34px; height: 34px; overflow: visible; }
+  .organ .nm { flex: 1; min-width: 0; font-size: 14px; overflow-wrap: anywhere; }
+  .organ .tick { display: none; width: 24px; height: 24px; border-radius: 50%; background: var(--good); color: #fff; place-items: center; font-size: 14px; }
+  .organ.shake { animation: shake .4s; border-color: var(--bad); }
+  @keyframes shake { 20%,60% { transform: translateX(-6px); } 40%,80% { transform: translateX(6px); } }
+
+  .tools { display: grid; gap: 8px; margin-top: 16px; }
+  .btn {
+    padding: 11px 14px; border-radius: 12px; border: 0; cursor: pointer;
+    font: 700 15px var(--body); background: #f3f7fd; color: var(--ink);
+  }
+  .btn:hover { background: #e7effb; }
+  .btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .btn.primary { background: var(--accent); color: #fff; }
+  .btn.primary:hover { background: #1f6be0; }
+  .toggle { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 15px; cursor: pointer; padding: 6px 2px; }
+  .toggle input { width: 18px; height: 18px; accent-color: var(--accent); }
+
+  /* Поле с туловищем */
+  .stage { position: relative; display: grid; justify-items: center; }
+  .stage svg#body { width: 100%; max-width: 460px; height: auto; display: block; overflow: visible; }
+  .orient { display: flex; gap: 18px; justify-content: center; color: var(--muted); font-size: 13px; margin-top: 4px; text-align: center; }
+
+  .ghost * { fill: rgba(255,255,255,.55) !important; stroke: #b0705a !important; stroke-width: 2px !important; stroke-dasharray: 6 5; }
+  /* Контуры мест скрыты: их форма нужна только для проверки попадания */
+  .ghost { opacity: 0; }
+  .slot { cursor: pointer; }
+  .slot:focus { outline: none; }
+  .slot:focus-visible .ghost * { stroke: var(--accent) !important; stroke-width: 3px !important; }
+  .slot.hot .ghost * { stroke: var(--accent) !important; fill: rgba(47,124,246,.12) !important; }
+  .slot.wrong .ghost * { stroke: var(--bad) !important; fill: rgba(239,75,92,.12) !important; }
+  .slot-label { font: 800 11px var(--body); fill: #7a3f28; paint-order: stroke; stroke: #fff; stroke-width: 3px; text-anchor: middle; dominant-baseline: middle; pointer-events: none; opacity: 0; transition: opacity .2s; }
+  .hints .slot-label { opacity: 1; }
+  .placed-organ { transform-box: fill-box; transform-origin: center; animation: pop .45s cubic-bezier(.3,1.6,.5,1); }
+  @keyframes pop { from { transform: scale(.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .region { font: 700 10px var(--body); fill: #a8674c; letter-spacing: .12em; text-transform: uppercase; }
+
+  .drag-ghost { position: fixed; left: 0; top: 0; pointer-events: none; z-index: 50; filter: drop-shadow(0 10px 14px rgba(31,42,68,.25)); }
+  .drag-ghost svg { width: 100%; height: 100%; overflow: visible; display: block; }
+
+  /* Карточка с фактом */
+  .facts { display: grid; gap: 14px; }
+  .card { border-radius: 20px; padding: 18px; background: #f6f9fe; }
+  .card.fact { background: color-mix(in srgb, var(--c, var(--accent)) 9%, #fff); border: 2px solid color-mix(in srgb, var(--c, var(--accent)) 30%, #fff); }
+  .card h3 { font: 800 22px/1.15 var(--display); margin: 0 0 6px; color: var(--ink); }
+  .tag { display: inline-block; font-size: 12px; font-weight: 800; padding: 3px 10px; border-radius: 999px; background: var(--c, var(--accent)); color: #fff; margin-bottom: 10px; }
+  .card p { margin: 0; }
+  .card .where { margin-top: 10px; font-size: 14px; color: var(--muted); }
+  .steps { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 15px; }
+
+  .toast {
+    position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 140%); z-index: 60;
+    background: var(--ink); color: #fff; padding: 12px 18px; border-radius: 14px; font-weight: 700;
+    max-width: min(92vw, 520px); text-align: center; transition: transform .3s, opacity .3s; opacity: 0;
+  }
+  .toast.show { transform: translate(-50%, 0); opacity: 1; }
+  .toast.bad { background: var(--bad); }
+  .toast.good { background: var(--good); }
+
+  .modal { position: fixed; inset: 0; background: rgba(31,42,68,.45); display: grid; place-items: center; z-index: 70; padding: 16px; }
+  .modal-box { background: #fff; border-radius: 24px; padding: 28px; max-width: 420px; width: 100%; text-align: center; display: grid; gap: 12px; }
+  .modal-box h2 { font: 800 28px/1.1 var(--display); margin: 0; }
+  .stars { font-size: 42px; letter-spacing: 6px; color: #e3e8f2; }
+  .stars .on { color: var(--sun); }
+  .result { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
+
+  .confetti { position: fixed; top: -12px; width: 10px; height: 14px; border-radius: 3px; z-index: 65; pointer-events: none; animation: fall linear forwards; }
+  @keyframes fall { to { transform: translateY(110vh) rotate(720deg); } }
+
+  @media (max-width: 980px) {
+    .game { grid-template-columns: 200px minmax(0, 1fr); }
+    .facts { grid-column: 1 / -1; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+  }
+  @media (max-width: 640px) {
+    .game { grid-template-columns: minmax(0, 1fr); }
+    .tray-list { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+    .organ { gap: 8px; padding: 8px; font-size: 14px; }
+    .organ .ico { width: 42px; height: 42px; }
+    .organ .ico svg { width: 34px; height: 34px; }
+    .tools { grid-template-columns: 1fr 1fr; }
+    .tools .toggle { grid-column: 1 / -1; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <div class="logo" aria-hidden="true">
+        <svg width="28" height="28" viewBox="0 0 60 65"><path d="M30 60C10 45 4 30 8 20 12 8 26 6 30 18 34 6 48 8 52 20 56 30 50 45 30 60Z" fill="#fff"/></svg>
+      </div>
+      <div>
+        <h1>Հավաքիր մարդուն</h1>
+        <p class="sub">Քաշիր յուրաքանչյուր օրգանը իր տեղը մարմնում</p>
+      </div>
+    </div>
+    <div class="stats">
+      <div class="chip found"><small>Գտնված</small><b id="found">0</b>/<span id="total">5</span></div>
+      <div class="chip err"><small>Սխալներ</small><b id="errors">0</b></div>
+      <div class="chip"><small>Ժամանակ</small><b id="time">0:00</b></div>
+    </div>
+  </header>
+
+  <main class="game">
+    <section class="tray" aria-label="Օրգաններ">
+      <h2>Օրգաններ</h2>
+      <div class="tray-list" id="tray"></div>
+      <div class="tools">
+        <label class="toggle"><input type="checkbox" id="hints"> Անվանումները տեղերում</label>
+        <button class="btn" id="reset" type="button">Սկսել նորից</button>
+      </div>
+    </section>
+
+    <section class="stage" aria-label="Իրան">
+      <svg id="body" viewBox="0 0 400 530" role="img" aria-label="Մարդու իրանը՝ օրգանների դատարկ տեղերով">
+        <defs>
+          <!-- кожа: края темнее, середина светлее, чтобы тело выглядело объёмным -->
+          <linearGradient id="skin" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stop-color="#e2a988"/>
+            <stop offset=".22" stop-color="#f3cdb4"/>
+            <stop offset=".5" stop-color="#f8dac6"/>
+            <stop offset=".78" stop-color="#f3cdb4"/>
+            <stop offset="1" stop-color="#e2a988"/>
+          </linearGradient>
+          <linearGradient id="skinShade" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#000" stop-opacity="0"/>
+            <stop offset=".85" stop-color="#000" stop-opacity="0"/>
+            <stop offset="1" stop-color="#7a3f28" stop-opacity=".18"/>
+          </linearGradient>
+          <radialGradient id="cut" cx=".5" cy=".5" r=".6">
+            <stop offset="0" stop-color="#e79a8f"/>
+            <stop offset="1" stop-color="#c46a62"/>
+          </radialGradient>
+          <!-- органы -->
+          <radialGradient id="gLung" cx=".4" cy=".35" r=".75">
+            <stop offset="0" stop-color="#fbc2c9"/>
+            <stop offset=".55" stop-color="#f08f9f"/>
+            <stop offset="1" stop-color="#c9566d"/>
+          </radialGradient>
+          <linearGradient id="gTrachea" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stop-color="#d9a3a3"/>
+            <stop offset=".5" stop-color="#f6dcd8"/>
+            <stop offset="1" stop-color="#d9a3a3"/>
+          </linearGradient>
+          <radialGradient id="gHeart" cx=".38" cy=".4" r=".7">
+            <stop offset="0" stop-color="#f0606a"/>
+            <stop offset=".6" stop-color="#c82a3a"/>
+            <stop offset="1" stop-color="#8e1424"/>
+          </radialGradient>
+          <radialGradient id="gLiver" cx=".35" cy=".35" r=".8">
+            <stop offset="0" stop-color="#cf7556"/>
+            <stop offset=".6" stop-color="#a34a31"/>
+            <stop offset="1" stop-color="#6e2a1b"/>
+          </radialGradient>
+          <radialGradient id="gGall" cx=".4" cy=".4" r=".7">
+            <stop offset="0" stop-color="#9ccc6f"/>
+            <stop offset="1" stop-color="#4f8a35"/>
+          </radialGradient>
+          <radialGradient id="gStomach" cx=".55" cy=".45" r=".7">
+            <stop offset="0" stop-color="#fbc9b0"/>
+            <stop offset=".6" stop-color="#ee9f7f"/>
+            <stop offset="1" stop-color="#c76a4c"/>
+          </radialGradient>
+          <radialGradient id="gKidney" cx=".38" cy=".35" r=".75">
+            <stop offset="0" stop-color="#d0626a"/>
+            <stop offset=".6" stop-color="#a23440"/>
+            <stop offset="1" stop-color="#6b1b26"/>
+          </radialGradient>
+          <radialGradient id="gThyroid" cx=".4" cy=".35" r=".75">
+            <stop offset="0" stop-color="#ea8a7c"/>
+            <stop offset="1" stop-color="#a83a3a"/>
+          </radialGradient>
+          <radialGradient id="gSpleen" cx=".4" cy=".35" r=".8">
+            <stop offset="0" stop-color="#b9617f"/>
+            <stop offset="1" stop-color="#6a2240"/>
+          </radialGradient>
+          <linearGradient id="gPancreas" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#fbe0a2"/>
+            <stop offset="1" stop-color="#d9a04a"/>
+          </linearGradient>
+          <linearGradient id="gLarge" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#f3c2a6"/>
+            <stop offset="1" stop-color="#cc8264"/>
+          </linearGradient>
+          <radialGradient id="gSmall" cx=".45" cy=".4" r=".7">
+            <stop offset="0" stop-color="#fbd6c8"/>
+            <stop offset="1" stop-color="#e09a86"/>
+          </radialGradient>
+        </defs>
+        <!-- туловище без головы и рук -->
+        <g>
+          <path id="torso" d="M168 18 C168 46 160 60 140 68 C118 76 96 80 80 90 L64 170 C70 205 78 235 88 262 C100 296 110 318 110 340 C108 378 96 408 92 440 C90 464 92 484 96 500 L304 500 C308 484 310 464 308 440 C304 408 292 378 290 340 C290 318 300 296 312 262 C322 235 330 205 336 170 L320 90 C304 80 282 76 260 68 C240 60 232 46 232 18 Z"
+                fill="url(#skin)" stroke="#c98d6c" stroke-width="2.5" stroke-linejoin="round"/>
+          <path d="M168 18 C168 46 160 60 140 68 C118 76 96 80 80 90 L64 170 C70 205 78 235 88 262 C100 296 110 318 110 340 C108 378 96 408 92 440 C90 464 92 484 96 500 L304 500 C308 484 310 464 308 440 C304 408 292 378 290 340 C290 318 300 296 312 262 C322 235 330 205 336 170 L320 90 C304 80 282 76 260 68 C240 60 232 46 232 18 Z" fill="url(#skinShade)"/>
+          <!-- срезы шеи и плеч -->
+          <ellipse cx="200" cy="18" rx="32" ry="7" fill="url(#cut)" stroke="#b25f55" stroke-width="2"/>
+          <circle cx="200" cy="18" r="3" fill="#f3e6d8"/>
+          <ellipse cx="72" cy="130" rx="10" ry="41" transform="rotate(11 72 130)" fill="url(#cut)" stroke="#b25f55" stroke-width="2"/>
+          <ellipse cx="328" cy="130" rx="10" ry="41" transform="rotate(-11 328 130)" fill="url(#cut)" stroke="#b25f55" stroke-width="2"/>
+          <!-- скелет просвечивает: ключицы, грудина, рёбра -->
+          <g fill="none" stroke="#c08a6d" stroke-linecap="round" opacity=".35">
+            <path d="M194 62 C170 70 130 62 92 82" stroke-width="5"/>
+            <path d="M206 62 C230 70 270 62 308 82" stroke-width="5"/>
+            <rect x="193" y="64" width="14" height="128" rx="7" stroke-width="2.5" fill="#f3cdb4"/>
+            <g id="ribs" stroke-width="3.5"></g>
+          </g>
+          <path d="M200 200 V420" stroke="#d4a083" stroke-width="1.5" opacity=".5"/>
+          <ellipse cx="200" cy="432" rx="4" ry="6" fill="#d39a7b"/>
+          <!-- диафрагма -->
+          <path d="M84 254 Q200 214 316 254" fill="none" stroke="#9b5a43" stroke-width="2" stroke-dasharray="3 6" stroke-linecap="round" opacity=".7"/>
+          <path d="M316 254 L330 246" stroke="#a8674c" stroke-width="1.5"/>
+          <text class="region" x="332" y="246" dy="3">ստոծանի</text>
+          <text class="region" x="200" y="522" text-anchor="middle">որովայնի խոռոչ</text>
+          <text font-family="var(--display)" font-weight="800" font-size="16" fill="#a8674c" x="100" y="108">Ա</text>
+          <text font-family="var(--display)" font-weight="800" font-size="16" fill="#a8674c" x="290" y="108">Ձ</text>
+        </g>
+        <g id="slots"></g>
+        <g id="placed"></g>
+      </svg>
+      <div class="orient"><span><b>Ա</b> — մարմնի աջ կողմը</span><span><b>Ձ</b> — մարմնի ձախ կողմը</span></div>
+    </section>
+
+    <aside class="facts" aria-live="polite">
+      <div>
+        <h2>Գիտե՞ս արդյոք</h2>
+        <div class="card fact" id="fact">
+          <h3>Ինչպես խաղալ</h3>
+          <ol class="steps">
+            <li>Վերցրու օրգանը ձախ կողմից և քաշիր այն մարմնի մեջ։</li>
+            <li>Կարելի է նաև այլ կերպ՝ սեղմիր օրգանի վրա, հետո՝ նրա տեղի վրա։</li>
+            <li>Մարդը կանգնած է դեմքով դեպի քեզ, ուստի նրա ձախ կողմը քո աջ կողմում է։</li>
+          </ol>
+        </div>
+      </div>
+      <div class="card">
+        <h2 style="margin-bottom:8px">Օրգան համակարգեր</h2>
+        <p style="font-size:14px;color:var(--muted)" id="systems">Յուրաքանչյուր օրգան պատկանում է իր համակարգին՝ արյունատար, շնչառական, մարսողական, միզաարտազատական, էնդոկրին կամ իմունային։</p>
+      </div>
+    </aside>
+  </main>
+</div>
+
+<div class="toast" id="toast" role="status"></div>
+
+<div class="modal" id="modal" hidden>
+  <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="win-title">
+    <div class="stars" id="stars"><span>★</span><span>★</span><span>★</span></div>
+    <h2 id="win-title">Մարդը հավաքված է</h2>
+    <p id="win-text" style="margin:0;color:var(--muted)"></p>
+    <div class="result">
+      <button class="btn primary" id="again" type="button">Խաղալ ևս մեկ անգամ</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const ORGANS = [
+  {
+    id: 'lungs', name: 'Թոքեր', color: '#e0687f', system: 'Շնչառական համակարգ',
+    x: 110, y: 50, w: 180, h: 190,
+    art: `
+      <path d="M90 -28 V58 M90 56 C82 62 74 70 66 82 M90 56 C98 62 106 70 114 82" fill="none" stroke="url(#gTrachea)" stroke-width="11" stroke-linecap="round"/>
+      <path d="M84 -22 H96 M84 -15 H96 M84 -8 H96 M84 -1 H96 M84 6 H96 M84 13 H96 M84 20 H96 M84 27 H96 M84 34 H96 M84 41 H96 M84 48 H96" stroke="#c48b8b" stroke-width="1.6" opacity=".8"/>
+      <path d="M80 52 C60 40 34 60 22 96 C10 132 8 170 20 182 C34 192 62 184 80 176 C88 170 90 150 88 120 C87 96 86 70 80 52 Z" fill="url(#gLung)" stroke="#b04a62" stroke-width="2.5" stroke-linejoin="round"/>
+      <path d="M100 52 C120 40 146 60 158 96 C170 132 172 170 160 182 C146 192 118 186 104 178 C98 172 104 160 112 152 C104 144 96 134 94 118 C93 96 94 70 100 52 Z" fill="url(#gLung)" stroke="#b04a62" stroke-width="2.5" stroke-linejoin="round"/>
+      <g fill="none" stroke="#b04a62" stroke-width="1.8" stroke-linecap="round" opacity=".7">
+        <path d="M86 118 C66 112 42 120 16 138"/>
+        <path d="M84 74 C64 104 42 146 34 184"/>
+        <path d="M98 70 C118 104 138 146 148 186"/>
+      </g>
+      <g fill="none" stroke="#d97a8c" stroke-width="1.2" stroke-linecap="round" opacity=".7">
+        <path d="M66 82 L52 104 L40 116 M52 104 L50 128 M60 96 L70 120"/>
+        <path d="M114 82 L128 104 L140 116 M128 104 L130 128 M120 96 L110 120"/>
+      </g>
+      <ellipse cx="44" cy="84" rx="9" ry="20" fill="#fff" opacity=".28" transform="rotate(20 44 84)"/>
+      <ellipse cx="136" cy="84" rx="9" ry="20" fill="#fff" opacity=".28" transform="rotate(-20 136 84)"/>`,
+    fact: 'Այստեղ ներշնչված օդի թթվածինն անցնում է արյան մեջ։ Թոքերում կա մոտ 500 միլիոն մանրիկ պղպջակ՝ ալվեոլներ։',
+    where: 'Կրծքավանդակում, սրտի երկու կողմերում, ստոծանուց վեր։',
+    hint: 'Թոքերը զբաղեցնում են գրեթե ամբողջ կրծքավանդակը՝ սրտի երկու կողմերում։'
+  },
+  {
+    id: 'heart', name: 'Սիրտ', color: '#ef3b48', system: 'Արյունատար համակարգ',
+    x: 190, y: 134, w: 66, h: 76,
+    art: `
+      <path d="M12 34 L10 4" fill="none" stroke="#4f63c4" stroke-width="7" stroke-linecap="round"/>
+      <path d="M24 28 C20 16 24 8 32 8 C38 8 42 12 44 18" fill="none" stroke="#5b70d6" stroke-width="7" stroke-linecap="round"/>
+      <path d="M32 26 C28 10 36 2 46 2 C56 2 60 10 58 20" fill="none" stroke="#c0283a" stroke-width="8" stroke-linecap="round"/>
+      <path d="M40 4 V-4 M47 2 V-6 M54 5 V-3" stroke="#c0283a" stroke-width="3.5" stroke-linecap="round"/>
+      <path d="M14 26 C4 36 4 54 16 64 C26 72 44 77 58 72 C64 62 64 46 58 34 C52 22 32 16 14 26 Z" fill="url(#gHeart)" stroke="#7d1220" stroke-width="2.5" stroke-linejoin="round"/>
+      <g fill="none" stroke-linecap="round">
+        <path d="M30 24 C34 38 40 52 54 70" stroke="#f3c8a0" stroke-width="2.5" opacity=".8"/>
+        <path d="M36 40 C44 42 50 48 54 56 M24 40 C20 50 20 58 24 66" stroke="#f3c8a0" stroke-width="1.6" opacity=".7"/>
+      </g>
+      <ellipse cx="22" cy="40" rx="5" ry="10" fill="#fff" opacity=".25" transform="rotate(20 22 40)"/>`,
+    fact: 'Մկանային պոմպ՝ մոտավորապես բռունցքի չափ։ Մեկ օրում սիրտը զարկում է մոտ 100 000 անգամ և մղում մոտ 7 000 լիտր արյուն։',
+    where: 'Կրծքավանդակում, թոքերի միջև, մի փոքր թեքված դեպի ձախ։',
+    hint: 'Սիրտը թոքերի միջև է և մի փոքր ձախ, այսինքն՝ նկարում մեջտեղից մի փոքր աջ։'
+  },
+  {
+    id: 'liver', name: 'Լյարդ', color: '#b5523b', system: 'Մարսողական համակարգ',
+    x: 100, y: 226, w: 122, h: 82,
+    art: `
+      <path d="M4 30 C10 12 40 4 72 6 C96 8 114 12 118 20 C118 30 104 40 86 50 C70 60 52 72 34 76 C18 78 6 70 4 56 C2 46 2 38 4 30 Z" fill="url(#gLiver)" stroke="#5e2214" stroke-width="2.5" stroke-linejoin="round"/>
+      <path d="M78 8 C74 26 66 44 56 64" fill="none" stroke="#5e2214" stroke-width="2" stroke-linecap="round" opacity=".55"/>
+      <path d="M20 40 C34 34 48 34 60 40 M92 22 C100 22 108 22 114 20" fill="none" stroke="#e3957a" stroke-width="1.4" stroke-linecap="round" opacity=".5"/>
+      <path d="M50 62 C44 74 52 84 61 80 C68 76 66 64 58 58 Z" fill="url(#gGall)" stroke="#3d6e28" stroke-width="1.8"/>
+      <ellipse cx="32" cy="26" rx="18" ry="7" fill="#fff" opacity=".22" transform="rotate(-12 32 26)"/>`,
+    fact: 'Մարմնի ամենամեծ գեղձն է՝ կշռում է մոտ 1,5 կգ։ Չեզոքացնում է արյան վնասակար նյութերը և արտադրում լեղի, որն օգնում է մարսել ճարպերը։',
+    where: 'Որովայնի աջ վերին մասում, անմիջապես ստոծանու տակ։',
+    hint: 'Լյարդը աջ կողմում է՝ ստոծանու տակ, իսկ նկարում դա ձախ կողմն է։'
+  },
+  {
+    id: 'stomach', name: 'Ստամոքս', color: '#ff9f1c', system: 'Մարսողական համակարգ',
+    x: 220, y: 236, w: 74, h: 88,
+    art: `
+      <path d="M22 -6 C22 4 22 10 24 18" fill="none" stroke="#dc8c6c" stroke-width="10" stroke-linecap="round"/>
+      <path d="M18 14 C14 4 26 -2 38 2 C58 8 72 26 70 50 C68 72 52 86 34 86 C22 86 14 80 8 72 C4 68 2 64 4 60 C10 62 18 62 24 58 C32 52 32 44 26 38 C20 32 16 24 18 14 Z" fill="url(#gStomach)" stroke="#a5503a" stroke-width="2.5" stroke-linejoin="round"/>
+      <path d="M4 60 C-2 62 -4 70 0 76" fill="none" stroke="#e4a07f" stroke-width="7" stroke-linecap="round"/>
+      <g fill="none" stroke="#c46a50" stroke-width="1.5" stroke-linecap="round" opacity=".55">
+        <path d="M34 20 C48 26 58 38 60 52"/>
+        <path d="M32 32 C44 38 50 50 50 62"/>
+        <path d="M30 48 C38 54 40 64 36 74"/>
+      </g>
+      <ellipse cx="46" cy="22" rx="10" ry="5" fill="#fff" opacity=".35" transform="rotate(25 46 22)"/>`,
+    fact: 'Մկանային պարկ, որտեղ սնունդը խառնվում է ստամոքսահյութի հետ։ Դատարկ ստամոքսը փոքր է, իսկ ուտելուց հետո կարող է ձգվել մինչև 1,5 լիտր։',
+    where: 'Որովայնի ձախ վերին մասում, ստոծանու տակ, լյարդի կողքին։',
+    hint: 'Ստամոքսը ձախ կողմում է՝ ստոծանու տակ, իսկ նկարում դա աջ կողմն է։'
+  },
+  {
+    id: 'kidneys', name: 'Երիկամներ', color: '#a23440', system: 'Միզաարտազատական համակարգ',
+    x: 110, y: 330, w: 180, h: 80,
+    art: `
+      <path d="M84 0 V80" stroke="#4f63c4" stroke-width="8" stroke-linecap="round"/>
+      <path d="M97 0 V80" stroke="#c0283a" stroke-width="7" stroke-linecap="round"/>
+      <path d="M97 32 H48 M97 34 H132" stroke="#c0283a" stroke-width="3.5" stroke-linecap="round"/>
+      <path d="M84 40 H48 M84 42 H132" stroke="#4f63c4" stroke-width="3.5" stroke-linecap="round"/>
+      <path d="M46 44 C52 56 58 66 66 80 M134 44 C128 56 122 66 114 80" fill="none" stroke="#e8d38a" stroke-width="3.5" stroke-linecap="round"/>
+      <g>
+        <path d="M34 6 C16 6 6 24 8 40 C10 58 24 68 38 64 C48 60 48 48 42 42 C38 38 38 32 44 28 C52 20 50 6 34 6 Z" fill="url(#gKidney)" stroke="#5a1520" stroke-width="2.5" stroke-linejoin="round"/>
+        <path d="M22 8 C26 -2 40 -2 44 6 C38 9 28 10 22 8 Z" fill="#f2c14e" stroke="#c99520" stroke-width="1.5"/>
+        <path d="M40 36 C34 30 26 32 24 38 C26 44 34 46 40 40" fill="#e9b7a9" opacity=".8"/>
+        <ellipse cx="20" cy="26" rx="5" ry="11" fill="#fff" opacity=".25" transform="rotate(10 20 26)"/>
+      </g>
+      <g transform="translate(180 0) scale(-1 1)">
+        <path d="M34 6 C16 6 6 24 8 40 C10 58 24 68 38 64 C48 60 48 48 42 42 C38 38 38 32 44 28 C52 20 50 6 34 6 Z" fill="url(#gKidney)" stroke="#5a1520" stroke-width="2.5" stroke-linejoin="round"/>
+        <path d="M22 8 C26 -2 40 -2 44 6 C38 9 28 10 22 8 Z" fill="#f2c14e" stroke="#c99520" stroke-width="1.5"/>
+        <path d="M40 36 C34 30 26 32 24 38 C26 44 34 46 40 40" fill="#e9b7a9" opacity=".8"/>
+        <ellipse cx="20" cy="26" rx="5" ry="11" fill="#fff" opacity=".25" transform="rotate(10 20 26)"/>
+      </g>`,
+    fact: 'Երկու երիկամները ձևով նման են լոբու։ Նրանք զտում են արյունը՝ մեկ օրում նրանց միջով անցնում է մոտ 180 լիտր հեղուկ, իսկ ավելորդն արտազատվում է մեզի հետ։',
+    where: 'Որովայնի հետին պատի մոտ, ողնաշարի երկու կողմերում, գոտկատեղի մակարդակում։',
+    hint: 'Երիկամները երկուսն են՝ որովայնի հետին պատի մոտ, գոտկատեղի մակարդակում, լյարդից և ստամոքսից ներքև։'
+  },
+  {
+    id: 'thyroid', name: 'Վահանագեղձ', color: '#c0504a', system: 'Էնդոկրին համակարգ',
+    x: 178, y: 28, w: 44, h: 24,
+    art: `
+      <path d="M4 16 C1 5 9 -1 15 2 C18 5 18 10 20 11 L24 11 C26 10 26 5 29 2 C35 -1 43 5 40 16 C38 24 30 24 26 18 L18 18 C14 24 6 24 4 16 Z" fill="url(#gThyroid)" stroke="#7d2626" stroke-width="2" stroke-linejoin="round"/>
+      <path d="M10 8 C12 12 12 16 10 19 M34 8 C32 12 32 16 34 19" fill="none" stroke="#f3b0a4" stroke-width="1.2" opacity=".7"/>`,
+    fact: 'Նման է թիթեռի։ Արտադրում է յոդ պարունակող հորմոններ, որոնք կառավարում են նյութափոխանակությունը, աճը և օրգանիզմի զարգացումը։',
+    where: 'Պարանոցի առջևի մակերեսին, կոկորդից ներքև։ Գրկում է շնչափողը։',
+    hint: 'Վահանագեղձը պարանոցի վրա է՝ շնչափողի առջևում։'
+  },
+  {
+    id: 'spleen', name: 'Փայծաղ', color: '#8a2f52', system: 'Իմունային համակարգ',
+    x: 286, y: 252, w: 24, h: 46,
+    art: `
+      <path d="M8 2 C18 0 24 14 24 24 C24 36 16 46 8 44 C2 42 4 34 8 30 C4 24 1 10 8 2 Z" fill="url(#gSpleen)" stroke="#4f1730" stroke-width="2" stroke-linejoin="round"/>
+      <ellipse cx="15" cy="16" rx="3" ry="7" fill="#fff" opacity=".25"/>`,
+    fact: 'Զտում է արյունը՝ քայքայում է հին էրիթրոցիտները և օգնում օրգանիզմին պայքարել վարակների դեմ։',
+    where: 'Ձախ ենթակողային շրջանում, ստամոքսի կողքին և ետևում։',
+    hint: 'Փայծաղը ձախ կողմում է՝ ստամոքսի կողքին, իսկ նկարում դա աջ եզրն է։'
+  },
+  {
+    id: 'pancreas', name: 'Ենթաստամոքսային գեղձ', color: '#d99a3f', system: 'Մարսողական համակարգ',
+    x: 168, y: 314, w: 100, h: 28,
+    art: `
+      <path d="M6 14 C2 4 14 0 24 4 C44 10 70 4 92 6 C100 8 100 16 92 18 C70 22 44 22 28 24 C16 26 8 22 6 14 Z" fill="url(#gPancreas)" stroke="#a76e22" stroke-width="2" stroke-linejoin="round"/>
+      <path d="M18 12 C30 14 50 14 88 11" fill="none" stroke="#c48a35" stroke-width="1.4" opacity=".7"/>
+      <g fill="#f9e7bd" opacity=".7"><circle cx="16" cy="8" r="2"/><circle cx="40" cy="17" r="2"/><circle cx="60" cy="9" r="2"/><circle cx="80" cy="15" r="2"/></g>`,
+    fact: 'Արտադրում է մարսողական հյութ, ինչպես նաև ինսուլին հորմոնը, որը կարգավորում է արյան մեջ շաքարի մակարդակը։',
+    where: 'Ստամոքսի ետևում, որովայնի վերին մասով լայնակի։',
+    hint: 'Ենթաստամոքսային գեղձը որովայնում լայնակի է դասավորված՝ անմիջապես ստամոքսի տակ։'
+  },
+  {
+    id: 'large', name: 'Հաստ աղիք', color: '#c77a5c', system: 'Մարսողական համակարգ',
+    x: 112, y: 344, w: 176, h: 122,
+    art: `
+      <path d="M14 112 L10 30 C10 14 20 6 36 8 C70 14 106 4 140 8 C158 10 168 18 168 34 L168 92 C168 108 156 116 140 112 C128 108 116 110 108 120 L96 120 C102 102 120 92 140 94 C146 94 148 90 148 84 L148 36 C148 30 144 28 138 28 C106 26 72 34 38 28 C32 28 30 32 30 38 L32 104 C32 112 26 118 20 118 Z" fill="url(#gLarge)" stroke="#9c5638" stroke-width="2.2" stroke-linejoin="round"/>
+      <path d="M20 117 C16 124 20 130 25 124" fill="none" stroke="#c77a5c" stroke-width="4" stroke-linecap="round"/>
+      <g stroke="#a8603f" stroke-width="1.4" stroke-linecap="round" opacity=".6">
+        <path d="M12 50 H30 M12 70 H31 M13 90 H31"/>
+        <path d="M60 13 V30 M90 11 V30 M120 9 V28"/>
+        <path d="M149 50 H167 M149 70 H167"/>
+      </g>`,
+    fact: 'Երկարությունը մոտ 1,5 մետր է։ Կլանում է ջուրը սննդի մնացորդներից։ Նրանում ապրում են օգտակար բակտերիաներ, որոնք օգնում են մարսողությանը։',
+    where: 'Շրջանակի պես շրջապատում է բարակ աղիքը՝ բարձրանում է աջից, անցնում լայնակի և իջնում ձախից։',
+    hint: 'Հաստ աղիքը շրջանակ է բարակ աղիքի օղակների շուրջը։'
+  },
+  {
+    id: 'small', name: 'Բարակ աղիք', color: '#e0937e', system: 'Մարսողական համակարգ',
+    x: 144, y: 378, w: 116, h: 78,
+    art: `
+      <path d="M10 18 C20 2 98 0 108 16 C118 32 114 64 100 72 C78 82 34 80 14 68 C2 58 2 34 10 18 Z" fill="url(#gSmall)" stroke="#b5654e" stroke-width="2.2" stroke-linejoin="round"/>
+      <g fill="none" stroke="#c97a63" stroke-width="1.8" stroke-linecap="round" opacity=".75">
+        <path d="M16 22 C24 12 32 30 42 20 C52 10 60 30 70 20 C80 10 90 30 102 20"/>
+        <path d="M12 38 C22 28 30 48 40 38 C50 28 60 48 70 38 C80 28 92 48 106 38"/>
+        <path d="M14 54 C24 44 32 64 42 54 C52 44 62 64 72 54 C82 44 92 62 104 54"/>
+        <path d="M30 70 C40 62 50 74 60 68 C70 62 78 72 88 68"/>
+      </g>`,
+    fact: 'Մարսողական ուղու ամենաերկար մասն է՝ մոտ 5–6 մետր։ Այստեղ սննդանյութերը ներծծվում են արյան մեջ։',
+    where: 'Որովայնի մեջտեղում՝ հաստ աղիքի շրջանակի ներսում։',
+    hint: 'Բարակ աղիքը օղակներ են որովայնի կենտրոնում՝ պորտից ներքև։'
+  }
+];
+// Порядок отрисовки: задние органы раньше, передние поверх
+const DRAW_ORDER = ['lungs', 'thyroid', 'kidneys', 'pancreas', 'spleen', 'liver', 'stomach', 'large', 'small', 'heart'];
+const byId = Object.fromEntries(ORGANS.map(o => [o.id, o]));
+
+const svg = document.getElementById('body');
+const slotsG = document.getElementById('slots');
+const placedG = document.getElementById('placed');
+const tray = document.getElementById('tray');
+const $ = id => document.getElementById(id);
+
+let placed = new Set();
+let errors = 0;
+let selected = null;
+let startTime = null;
+let timerId = null;
+let lastPlaced = null;
+
+/* ---------- звук ---------- */
+let audio = null;
+function beep(ok) {
+  try {
+    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+    const notes = ok ? [523, 784] : [220, 180];
+    notes.forEach((f, i) => {
+      const o = audio.createOscillator(), g = audio.createGain();
+      o.type = ok ? 'triangle' : 'square';
+      o.frequency.value = f;
+      const t = audio.currentTime + i * 0.09;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(ok ? 0.18 : 0.06, t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.18);
+      o.connect(g).connect(audio.destination);
+      o.start(t); o.stop(t + 0.2);
+    });
+  } catch (e) {}
+}
+
+/* ---------- отрисовка ---------- */
+function artSvg(o, cls = '') {
+  return `<svg x="${o.x}" y="${o.y}" width="${o.w}" height="${o.h}" viewBox="0 0 ${o.w} ${o.h}" overflow="visible" class="${cls}">${o.art}</svg>`;
+}
+
+function renderSlots() {
+  slotsG.innerHTML = DRAW_ORDER.filter(id => !placed.has(id)).map(id => {
+    const o = byId[id];
+    return `<g class="slot" id="slot-${id}" data-id="${id}" tabindex="0" role="button" aria-label="Օրգանի դատարկ տեղ">
+      ${artSvg(o, 'ghost')}
+      <text class="slot-label" x="${o.x + o.w / 2}" y="${o.y + o.h / 2}">${o.name}</text>
+    </g>`;
+  }).join('');
+}
+
+function renderPlaced() {
+  placedG.innerHTML = DRAW_ORDER.filter(id => placed.has(id)).map(id =>
+    `<g class="${id === lastPlaced ? 'placed-organ' : ''}">${artSvg(byId[id])}</g>`
+  ).join('');
+}
+
+function renderTray() {
+  const order = ORGANS.map(o => o.id).sort(() => Math.random() - 0.5);
+  tray.innerHTML = order.map(id => {
+    const o = byId[id];
+    return `<button class="organ" type="button" data-id="${id}" style="--c:${o.color}" aria-label="${o.name}">
+      <span class="ico"><svg viewBox="0 0 ${o.w} ${o.h}" preserveAspectRatio="xMidYMid meet">${o.art}</svg></span>
+      <span class="nm">${o.name}</span>
+      <span class="tick" aria-hidden="true">✓</span>
+    </button>`;
+  }).join('');
+}
+
+function updateStats() {
+  $('found').textContent = placed.size;
+  $('total').textContent = ORGANS.length;
+  $('errors').textContent = errors;
+}
+
+function showFact(o) {
+  const card = $('fact');
+  card.style.setProperty('--c', o.color);
+  card.innerHTML = `<span class="tag">${o.system}</span><h3>${o.name}</h3><p>${o.fact}</p><p class="where"><b>Որտեղ է գտնվում՝</b> ${o.where}</p>`;
+}
+
+let toastTimer;
+function toast(msg, kind = '') {
+  const t = $('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + kind;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.className = 'toast ' + kind, 2600);
+}
+
+/* ---------- таймер ---------- */
+function fmt(s) { return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
+function elapsed() { return startTime ? Math.floor((Date.now() - startTime) / 1000) : 0; }
+function startTimer() {
+  if (startTime) return;
+  startTime = Date.now();
+  timerId = setInterval(() => $('time').textContent = fmt(elapsed()), 500);
+}
+
+/* ---------- логика ---------- */
+function trayBtn(id) { return tray.querySelector(`[data-id="${id}"]`); }
+
+function select(id) {
+  selected = selected === id ? null : id;
+  tray.querySelectorAll('.organ').forEach(b => b.classList.toggle('selected', b.dataset.id === selected));
+  if (selected) toast(`Հիմա սեղմիր այն տեղի վրա, որտեղ պետք է լինի «${byId[selected].name}» օրգանը`);
+}
+
+function place(id) {
+  placed.add(id);
+  lastPlaced = id;
+  selected = null;
+  const b = trayBtn(id);
+  b.classList.remove('selected');
+  b.classList.add('done');
+  b.disabled = true;
+  renderSlots();
+  renderPlaced();
+  updateStats();
+  showFact(byId[id]);
+  beep(true);
+  toast(`Ճիշտ է։ «${byId[id].name}» — իր տեղում է`, 'good');
+  if (placed.size === ORGANS.length) setTimeout(win, 900);
+}
+
+function miss(id, slotId) {
+  errors++;
+  updateStats();
+  beep(false);
+  const b = trayBtn(id);
+  b.classList.remove('shake'); void b.offsetWidth; b.classList.add('shake');
+  setTimeout(() => b.classList.remove('shake'), 450);
+  if (slotId) {
+    const s = $('slot-' + slotId);
+    if (s) { s.classList.add('wrong'); setTimeout(() => s.classList.remove('wrong'), 600); }
+  }
+  toast(byId[id].hint, 'bad');
+}
+
+function toSvg(cx, cy) {
+  const p = svg.createSVGPoint();
+  p.x = cx; p.y = cy;
+  return p.matrixTransform(svg.getScreenCTM().inverse());
+}
+
+// Попадание проверяем по настоящей форме органа, а не по прямоугольнику:
+// места перекрываются (почки за кишечником, поджелудочная за желудком)
+const RING = [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1], [.7, .7], [-.7, .7], [.7, -.7], [-.7, -.7]];
+function slotHit(id, cx, cy, r) {
+  const s = document.getElementById('slot-' + id);
+  if (!s) return false;
+  const shapes = [...s.querySelectorAll('path, ellipse, circle')]
+    .filter(el => { const f = el.getAttribute('fill'); return f && f !== 'none'; });
+  const pts = r ? RING : RING.slice(0, 1);
+  return pts.some(([dx, dy]) => shapes.some(el => {
+    const p = svg.createSVGPoint();
+    p.x = cx + dx * r; p.y = cy + dy * r;
+    return el.isPointInFill(p.matrixTransform(el.getScreenCTM().inverse()));
+  }));
+}
+
+// Какое пустое место под курсором (верхние органы проверяем первыми)
+function slotAt(cx, cy) {
+  for (const id of [...DRAW_ORDER].reverse()) {
+    if (!placed.has(id) && slotHit(id, cx, cy, 0)) return id;
+  }
+  return null;
+}
+
+function insideBody(p) { return p.x > 55 && p.x < 345 && p.y > 10 && p.y < 505; }
+
+// Рёбра: от грудины в стороны и вниз
+document.getElementById('ribs').innerHTML = Array.from({ length: 7 }, (_, i) => {
+  const y = 86 + i * 20, ex = 94 + i * 3, ey = y + 34 + i * 3;
+  return `<path d="M193 ${y} C165 ${y - 6} 120 ${y + 4} ${ex} ${ey}"/><path d="M207 ${y} C235 ${y - 6} 280 ${y + 4} ${400 - ex} ${ey}"/>`;
+}).join('');
+
+function tryDrop(id, cx, cy) {
+  if (slotHit(id, cx, cy, 12)) return place(id);
+  const over = slotAt(cx, cy);
+  if (over || insideBody(toSvg(cx, cy))) miss(id, over);
+}
+
+function win() {
+  clearInterval(timerId);
+  const t = elapsed();
+  const stars = errors === 0 ? 3 : errors <= 2 ? 2 : 1;
+  $('stars').innerHTML = [1, 2, 3].map(i => `<span class="${i <= stars ? 'on' : ''}">★</span>`).join('');
+  $('win-text').textContent = `Ժամանակ՝ ${fmt(t)} · Սխալներ՝ ${errors}։ ` +
+    (stars === 3 ? 'Գերազանց է, դու գիտես անատոմիան։' : stars === 2 ? 'Շատ լավ է։ Փորձիր առանց սխալների։' : 'Վատ չէ։ Կարդա հուշումները և խաղա ևս մեկ անգամ։');
+  $('modal').hidden = false;
+  $('again').focus();
+  confetti();
+}
+
+function confetti() {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const colors = ORGANS.map(o => o.color).concat(['#2f7cf6', '#ffc93c', '#22b07d']);
+  for (let i = 0; i < 80; i++) {
+    const c = document.createElement('span');
+    c.className = 'confetti';
+    c.style.left = Math.random() * 100 + 'vw';
+    c.style.background = colors[i % colors.length];
+    c.style.animationDuration = 1.8 + Math.random() * 1.8 + 's';
+    c.style.animationDelay = Math.random() * 0.6 + 's';
+    document.body.appendChild(c);
+    setTimeout(() => c.remove(), 4500);
+  }
+}
+
+function reset() {
+  placed = new Set();
+  errors = 0; selected = null; lastPlaced = null;
+  clearInterval(timerId); startTime = null;
+  $('time').textContent = '0:00';
+  $('modal').hidden = true;
+  renderTray(); renderSlots(); renderPlaced(); updateStats();
+  const card = $('fact');
+  card.style.removeProperty('--c');
+  card.innerHTML = `<h3>Ինչպես խաղալ</h3><ol class="steps">
+    <li>Վերցրու օրգանը ձախ կողմից և քաշիր այն մարմնի մեջ։</li>
+    <li>Կարելի է նաև այլ կերպ՝ սեղմիր օրգանի վրա, հետո՝ նրա տեղի վրա։</li>
+    <li>Մարդը կանգնած է դեմքով դեպի քեզ, ուստի նրա ձախ կողմը քո աջ կողմում է։</li></ol>`;
+}
+
+/* ---------- перетаскивание ---------- */
+let drag = null;
+let suppressClick = false;
+
+tray.addEventListener('pointerdown', e => {
+  const b = e.target.closest('.organ');
+  if (!b || b.disabled) return;
+  e.preventDefault();
+  drag = { id: b.dataset.id, btn: b, x0: e.clientX, y0: e.clientY, ghost: null, pid: e.pointerId };
+  b.setPointerCapture(e.pointerId);
+});
+
+tray.addEventListener('pointermove', e => {
+  if (!drag || e.pointerId !== drag.pid) return;
+  if (!drag.ghost && Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) > 6) {
+    startTimer();
+    const o = byId[drag.id];
+    const scale = svg.getScreenCTM().a;
+    const g = document.createElement('div');
+    g.className = 'drag-ghost';
+    g.style.width = o.w * scale + 'px';
+    g.style.height = o.h * scale + 'px';
+    g.innerHTML = `<svg viewBox="0 0 ${o.w} ${o.h}">${o.art}</svg>`;
+    document.body.appendChild(g);
+    drag.ghost = g; drag.gw = o.w * scale; drag.gh = o.h * scale;
+    drag.btn.classList.add('dragging');
+  }
+  if (drag.ghost) {
+    drag.ghost.style.transform = `translate(${e.clientX - drag.gw / 2}px, ${e.clientY - drag.gh / 2}px)`;
+    const over = slotAt(e.clientX, e.clientY);
+    slotsG.querySelectorAll('.slot').forEach(s => s.classList.toggle('hot', s.dataset.id === over));
+  }
+});
+
+function endDrag(e, cancelled) {
+  if (!drag || e.pointerId !== drag.pid) return;
+  const d = drag; drag = null;
+  slotsG.querySelectorAll('.slot.hot').forEach(s => s.classList.remove('hot'));
+  if (d.ghost) {
+    d.ghost.remove();
+    d.btn.classList.remove('dragging');
+    suppressClick = true;
+    if (!cancelled) tryDrop(d.id, e.clientX, e.clientY);
+  }
+}
+tray.addEventListener('pointerup', e => endDrag(e, false));
+tray.addEventListener('pointercancel', e => endDrag(e, true));
+
+// Нажатие (мышью, пальцем или клавишей Enter) выбирает орган
+tray.addEventListener('click', e => {
+  const b = e.target.closest('.organ');
+  if (!b || b.disabled) return;
+  if (suppressClick) { suppressClick = false; return; }
+  startTimer();
+  select(b.dataset.id);
+});
+
+// Нажатие на тело кладёт выбранный орган
+svg.addEventListener('click', e => {
+  if (!selected) return;
+  tryDrop(selected, e.clientX, e.clientY);
+});
+slotsG.addEventListener('keydown', e => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const s = e.target.closest('.slot');
+  if (!s || !selected) return;
+  e.preventDefault();
+  if (s.dataset.id === selected) place(selected); else miss(selected, s.dataset.id);
+});
+
+$('hints').addEventListener('change', e => svg.classList.toggle('hints', e.target.checked));
+$('reset').addEventListener('click', reset);
+$('again').addEventListener('click', reset);
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('modal').hidden) reset(); });
+
+reset();
+</script>
+</body>
+</html>
